@@ -1,21 +1,25 @@
 discord.py-self
-===============
+================
 
+.. image:: https://img.shields.io/endpoint?url=https%3A%2F%2Frunkit.io%2Fdamiankrawczyk%2Ftelegram-badge%2Fbranches%2Fmaster%3Furl%3Dhttps%3A%2F%2Ft.me%2Fdpy_self
+   :target: https://t.me/dpy_self
+   :alt: Telegram chat
 .. image:: https://img.shields.io/pypi/v/discord.py-self.svg
    :target: https://pypi.python.org/pypi/discord.py-self
    :alt: PyPI version info
-.. image:: https://img.shields.io/pypi/pyversions/discord.py-self.svg
+.. image:: https://img.shields.io/pypi/pyversions/discord.py.svg
    :target: https://pypi.python.org/pypi/discord.py-self
    :alt: PyPI supported Python versions
+.. image:: https://img.shields.io/pypi/dm/discord.py-self.svg
+   :target: https://pypi.python.org/pypi/discord.py-self
+   :alt: PyPI downloads per month
 
 A modern, easy to use, feature-rich, and async ready API wrapper for Discord's user API written in Python.
-
-The only change in this branch is a rename of the import to *selfcord* to make people that want to use both libs at the same time happy.
 
 Fork Changes
 ------------
 
-This has been moved to the `website <https://dolf.ml/discord.py-self>`_.
+These changes have become too numerous to mention, so check out our `docs <https://discordpy-self.readthedocs.io/en/latest/index.html>`_.
 
 | **Credits:**
 | - `arandomnewaccount <https://www.reddit.com/user/obviouslymymain123/>`_ for Discord API help.
@@ -31,6 +35,7 @@ Key Features
 - Proper rate limit handling.
 - Optimised in both speed and memory.
 - Mostly compatible with the official ``discord.py``.
+- Prevents selfbot detection.
 
 Installing
 ----------
@@ -58,22 +63,19 @@ Otherwise to get voice support you should run the following command:
     py -3 -m pip install -U discord.py-self[voice]
 
 
-To install the development version, do the following (not recommended):
+To install the development version, do the following:
 
 .. code:: sh
 
-    $ git clone --single-branch --branch development https://github.com/dolfies/discord.py-self
+    $ git clone https://github.com/dolfies/discord.py-self
     $ cd discord.py-self
     $ python3 -m pip install -U .[voice]
-
-
-The master branch (version 2.0) is not ready for use in *any* way. Do not use.
 
 
 Optional Packages
 ~~~~~~~~~~~~~~~~~~
 
-* PyNaCl (for voice support)
+* `PyNaCl <https://pypi.org/project/PyNaCl/>`__ (for voice support)
 
 Please note that on Linux installing voice you must install the following packages via your favourite package manager (e.g. ``apt``, ``dnf``, etc) before running the above commands:
 
@@ -92,8 +94,8 @@ Quick Example
             print('Logged on as', self.user)
 
         async def on_message(self, message):
-            # don't respond to ourselves
-            if message.author == self.user:
+            # only respond to ourselves
+            if message.author != self.user:
                 return
 
             if message.content == 'ping':
@@ -123,5 +125,6 @@ You can find more examples in the examples directory.
 Links
 ------
 
-- `Official Documentation <https://discordpy.readthedocs.io/en/latest/index.html>`_
-- `Fork Documentation <https://dolf.ml/discord.py-self>`_
+- `Documentation <https://discordpy-self.readthedocs.io/en/latest/index.html>`_
+- `Project updates <https://t.me/dpy_self>`_
+- `Discussion & support <https://t.me/dpy_self_discussions>`_

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 The MIT License (MIT)
 
@@ -23,17 +21,60 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
+from __future__ import annotations
 
-from selfcord import abc, Message, utils
+import re
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Generic, List, Optional, TypeVar, Union
 
-class Context(abc.Messageable):
+import selfcord.abc
+import selfcord.utils
+from selfcord.message import Message
+from selfcord.utils import MISSING
+
+from ._types import BotT
+
+if TYPE_CHECKING:
+    from typing_extensions import ParamSpec
+
+    from selfcord.abc import MessageableChannel
+    from selfcord.commands import MessageCommand
+    from selfcord.guild import Guild
+    from selfcord.member import Member
+    from selfcord.state import ConnectionState
+    from selfcord.user import ClientUser, User
+    from selfcord.voice_client import VoiceProtocol
+
+    from .cog import Cog
+    from .core import Command
+    from .parameters import Parameter
+    from .view import StringView
+
+# fmt: off
+__all__ = (
+    'Context',
+)
+# fmt: on
+
+#MISSING: Any = discord.utils.MISSING
+
+
+T = TypeVar('T')
+CogT = TypeVar('CogT', bound="Cog")
+
+if TYPE_CHECKING:
+    P = ParamSpec('P')
+else:
+    P = TypeVar('P')
+
+
+class Context(selfcord.abc.Messageable, Generic[BotT]):
     r"""Represents the context in which a command is being invoked under.
 
     This class contains a lot of meta data to help you understand more about
     the invocation context. This class is not created manually and is instead
     passed around to commands as the first parameter.
 
-    This class implements the :class:`~discord.abc.Messageable` ABC.
+    This class implements the :class:`~selfcord.abc.Messageable` ABC.
 
     Attributes
     -----------
@@ -43,17 +84,27 @@ class Context(abc.Messageable):
         The bot that contains the command being executed.
     args: :class:`list`
         The list of transformed arguments that were passed into the command.
-        If this is accessed during the :func:`on_command_error` event
+        If this is accessed during the :func:`.on_command_error` event
         then this list could be incomplete.
     kwargs: :class:`dict`
         A dictionary of transformed arguments that were passed into the command.
         Similar to :attr:`args`\, if this is accessed in the
-        :func:`on_command_error` event then this dict could be incomplete.
-    prefix: :class:`str`
+        :func:`.on_command_error` event then this dict could be incomplete.
+    current_parameter: Optional[:class:`Parameter`]
+        The parameter that is currently being inspected and converted.
+        This is only of use for within converters.
+
+        .. versionadded:: 2.0
+    current_argument: Optional[:class:`str`]
+        The argument string of the :attr:`current_parameter` that is currently being converted.
+        This is only of use for within converters.
+
+        .. versionadded:: 2.0
+    prefix: Optional[:class:`str`]
         The prefix that was used to invoke the command.
-    command: :class:`Command`
+    command: Optional[:class:`Command`]
         The command that is being invoked currently.
-    invoked_with: :class:`str`
+    invoked_with: Optional[:class:`str`]
         The command name that triggered this invocation. Useful for finding out
         which alias called the command.
     invoked_parents: List[:class:`str`]
@@ -64,7 +115,7 @@ class Context(abc.Messageable):
 
         .. versionadded:: 1.7
 
-    invoked_subcommand: :class:`Command`
+    invoked_subcommand: Optional[:class:`Command`]
         The subcommand that was invoked.
         If no valid subcommand was invoked then this is equal to ``None``.
     subcommand_passed: Optional[:class:`str`]
@@ -77,22 +128,41 @@ class Context(abc.Messageable):
         or invoked.
     """
 
-    def __init__(self, **attrs):
-        self.message = attrs.pop('message', None)
-        self.bot = attrs.pop('bot', None)
-        self.args = attrs.pop('args', [])
-        self.kwargs = attrs.pop('kwargs', {})
-        self.prefix = attrs.pop('prefix')
-        self.command = attrs.pop('command', None)
-        self.view = attrs.pop('view', None)
-        self.invoked_with = attrs.pop('invoked_with', None)
-        self.invoked_parents = attrs.pop('invoked_parents', [])
-        self.invoked_subcommand = attrs.pop('invoked_subcommand', None)
-        self.subcommand_passed = attrs.pop('subcommand_passed', None)
-        self.command_failed = attrs.pop('command_failed', False)
-        self._state = self.message._state
+    def __init__(
+        self,
+        *,
+        message: Message,
+        bot: BotT,
+        view: StringView,
+        args: List[Any] = MISSING,
+        kwargs: Dict[str, Any] = MISSING,
+        prefix: Optional[str] = None,
+        command: Optional[Command[Any, ..., Any]] = None,
+        invoked_with: Optional[str] = None,
+        invoked_parents: List[str] = MISSING,
+        invoked_subcommand: Optional[Command[Any, ..., Any]] = None,
+        subcommand_passed: Optional[str] = None,
+        command_failed: bool = False,
+        current_parameter: Optional[Parameter] = None,
+        current_argument: Optional[str] = None,
+    ):
+        self.message: Message = message
+        self.bot: BotT = bot
+        self.args: List[Any] = args or []
+        self.kwargs: Dict[str, Any] = kwargs or {}
+        self.prefix: Optional[str] = prefix
+        self.command: Optional[Command[Any, ..., Any]] = command
+        self.view: StringView = view
+        self.invoked_with: Optional[str] = invoked_with
+        self.invoked_parents: List[str] = invoked_parents or []
+        self.invoked_subcommand: Optional[Command[Any, ..., Any]] = invoked_subcommand
+        self.subcommand_passed: Optional[str] = subcommand_passed
+        self.command_failed: bool = command_failed
+        self.current_parameter: Optional[Parameter] = current_parameter
+        self.current_argument: Optional[str] = current_argument
+        self._state: ConnectionState = self.message._state
 
-    async def invoke(self, *args, **kwargs):
+    async def invoke(self, command: Command[CogT, P, T], /, *args: P.args, **kwargs: P.kwargs) -> T:
         r"""|coro|
 
         Calls a command with the arguments given.
@@ -109,16 +179,16 @@ class Context(abc.Messageable):
             You must take care in passing the proper arguments when
             using this function.
 
-        .. warning::
+        .. versionchanged:: 2.0
 
-            The first parameter passed **must** be the command being invoked.
+            ``command`` parameter is now positional-only.
 
         Parameters
         -----------
         command: :class:`.Command`
             The command that is going to be called.
         \*args
-            The arguments to to use.
+            The arguments to use.
         \*\*kwargs
             The keyword arguments to use.
 
@@ -127,23 +197,9 @@ class Context(abc.Messageable):
         TypeError
             The command argument to invoke is missing.
         """
+        return await command(self, *args, **kwargs)
 
-        try:
-            command = args[0]
-        except IndexError:
-            raise TypeError('Missing command to invoke.') from None
-
-        arguments = []
-        if command.cog is not None:
-            arguments.append(command.cog)
-
-        arguments.append(self)
-        arguments.extend(args[1:])
-
-        ret = await command.callback(*arguments, **kwargs)
-        return ret
-
-    async def reinvoke(self, *, call_hooks=False, restart=True):
+    async def reinvoke(self, *, call_hooks: bool = False, restart: bool = True) -> None:
         """|coro|
 
         Calls the command again.
@@ -187,10 +243,10 @@ class Context(abc.Messageable):
 
         if restart:
             to_call = cmd.root_parent or cmd
-            view.index = len(self.prefix)
+            view.index = len(self.prefix or '')
             view.previous = 0
             self.invoked_parents = []
-            self.invoked_with = view.get_word() # advance to get the root command
+            self.invoked_with = view.get_word()  # advance to get the root command
         else:
             to_call = cmd
 
@@ -206,54 +262,72 @@ class Context(abc.Messageable):
             self.subcommand_passed = subcommand_passed
 
     @property
-    def valid(self):
+    def valid(self) -> bool:
         """:class:`bool`: Checks if the invocation context is valid to be invoked with."""
         return self.prefix is not None and self.command is not None
 
-    async def _get_channel(self):
+    async def _get_channel(self) -> selfcord.abc.Messageable:
         return self.channel
 
     @property
-    def cog(self):
+    def clean_prefix(self) -> str:
+        """:class:`str`: The cleaned up invoke prefix. i.e. mentions are ``@name`` instead of ``<@id>``.
+
+        .. versionadded:: 2.0
+        """
+        if self.prefix is None:
+            return ''
+
+        user = self.me
+        # this breaks if the prefix mention is not the bot itself but I
+        # consider this to be an *incredibly* strange use case. I'd rather go
+        # for this common use case rather than waste performance for the
+        # odd one.
+        pattern = re.compile(r"<@!?%s>" % user.id)
+        return pattern.sub("@%s" % user.display_name.replace('\\', r'\\'), self.prefix)
+
+    @property
+    def cog(self) -> Optional[Cog]:
         """Optional[:class:`.Cog`]: Returns the cog associated with this context's command. None if it does not exist."""
 
         if self.command is None:
             return None
         return self.command.cog
 
-    @utils.cached_property
-    def guild(self):
+    @selfcord.utils.cached_property
+    def guild(self) -> Optional[Guild]:
         """Optional[:class:`.Guild`]: Returns the guild associated with this context's command. None if not available."""
         return self.message.guild
 
-    @utils.cached_property
-    def channel(self):
+    @selfcord.utils.cached_property
+    def channel(self) -> MessageableChannel:
         """Union[:class:`.abc.Messageable`]: Returns the channel associated with this context's command.
         Shorthand for :attr:`.Message.channel`.
         """
         return self.message.channel
 
-    @utils.cached_property
-    def author(self):
+    @selfcord.utils.cached_property
+    def author(self) -> Union[User, Member]:
         """Union[:class:`~discord.User`, :class:`.Member`]:
         Returns the author associated with this context's command. Shorthand for :attr:`.Message.author`
         """
         return self.message.author
 
-    @utils.cached_property
-    def me(self):
+    @selfcord.utils.cached_property
+    def me(self) -> Union[Member, ClientUser]:
         """Union[:class:`.Member`, :class:`.ClientUser`]:
         Similar to :attr:`.Guild.me` except it may return the :class:`.ClientUser` in private message contexts.
         """
-        return self.guild.me if self.guild is not None else self.bot.user
+        # bot.user will never be None at this point.
+        return self.guild.me if self.guild is not None else self.bot.user  # type: ignore
 
     @property
-    def voice_client(self):
+    def voice_client(self) -> Optional[VoiceProtocol]:
         r"""Optional[:class:`.VoiceProtocol`]: A shortcut to :attr:`.Guild.voice_client`\, if applicable."""
         g = self.guild
         return g.voice_client if g else None
 
-    async def send_help(self, *args):
+    async def send_help(self, *args: Any) -> Any:
         """send_help(entity=<bot>)
 
         |coro|
@@ -283,7 +357,7 @@ class Context(abc.Messageable):
         Any
             The result of the help command, if any.
         """
-        from .core import Group, Command, wrap_callback
+        from .core import Command, Group, wrap_callback
         from .errors import CommandError
 
         bot = self.bot
@@ -294,6 +368,7 @@ class Context(abc.Messageable):
 
         cmd = cmd.copy()
         cmd.context = self
+
         if len(args) == 0:
             await cmd.prepare_help_command(self, None)
             mapping = cmd.get_bot_mapping()
@@ -305,11 +380,11 @@ class Context(abc.Messageable):
                 return None
 
         entity = args[0]
-        if entity is None:
-            return None
-
         if isinstance(entity, str):
             entity = bot.get_cog(entity) or bot.get_command(entity)
+
+        if entity is None:
+            return None
 
         try:
             entity.qualified_name
@@ -334,6 +409,20 @@ class Context(abc.Messageable):
         except CommandError as e:
             await cmd.on_help_command_error(self, e)
 
-    @utils.copy_doc(Message.reply)
-    async def reply(self, content=None, **kwargs):
+    @selfcord.utils.copy_doc(Message.reply)
+    async def reply(self, content: Optional[str] = None, **kwargs: Any) -> Message:
         return await self.message.reply(content, **kwargs)
+
+    async def message_commands(
+        self,
+        query: Optional[str] = None,
+        *,
+        limit: Optional[int] = None,
+        command_ids: Optional[List[int]] = None,
+        application: Optional[selfcord.abc.Snowflake] = None,
+        include_applications: bool = True,
+    ) -> AsyncIterator[MessageCommand]:
+        async for command in self.message.message_commands(
+            query, limit=limit, command_ids=command_ids, include_applications=include_applications, application=application
+        ):
+            yield command

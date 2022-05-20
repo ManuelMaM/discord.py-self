@@ -1,5 +1,3 @@
-# This example requires the 'members' privileged intents
-
 import discord
 from discord.ext import commands
 import random
@@ -9,22 +7,20 @@ module.
 
 There are a number of utility commands being showcased here.'''
 
-intents = discord.Intents.default()
-intents.members = True
+bot = commands.Bot(command_prefix='?', description=description, self_bot=True)
 
-bot = commands.Bot(command_prefix='?', description=description, intents=intents)
 
 @bot.event
 async def on_ready():
-    print('Logged in as')
-    print(bot.user.name)
-    print(bot.user.id)
+    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('------')
+
 
 @bot.command()
 async def add(ctx, left: int, right: int):
     """Adds two numbers together."""
     await ctx.send(left + right)
+
 
 @bot.command()
 async def roll(ctx, dice: str):
@@ -38,10 +34,12 @@ async def roll(ctx, dice: str):
     result = ', '.join(str(random.randint(1, limit)) for r in range(rolls))
     await ctx.send(result)
 
+
 @bot.command(description='For when you wanna settle the score some other way')
 async def choose(ctx, *choices: str):
     """Chooses between multiple choices."""
     await ctx.send(random.choice(choices))
+
 
 @bot.command()
 async def repeat(ctx, times: int, content='repeating...'):
@@ -49,10 +47,12 @@ async def repeat(ctx, times: int, content='repeating...'):
     for i in range(times):
         await ctx.send(content)
 
+
 @bot.command()
 async def joined(ctx, member: discord.Member):
     """Says when a member joined."""
-    await ctx.send('{0.name} joined in {0.joined_at}'.format(member))
+    await ctx.send(f'{member.name} joined in {member.joined_at}')
+
 
 @bot.group()
 async def cool(ctx):
@@ -61,11 +61,13 @@ async def cool(ctx):
     In reality this just checks if a subcommand is being invoked.
     """
     if ctx.invoked_subcommand is None:
-        await ctx.send('No, {0.subcommand_passed} is not cool'.format(ctx))
+        await ctx.send(f'No, {ctx.subcommand_passed} is not cool')
+
 
 @cool.command(name='bot')
 async def _bot(ctx):
     """Is the bot cool?"""
     await ctx.send('Yes, the bot is cool.')
+
 
 bot.run('token')

@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import re
 
 requirements = []
@@ -34,44 +34,58 @@ with open('README.rst') as f:
     readme = f.read()
 
 extras_require = {
-    'voice': ['PyNaCl>=1.3.0,<1.5'],
+    'voice': ['PyNaCl>=1.3.0,<1.6'],
     'docs': [
-        'sphinx==3.0.3',
+        'sphinx==4.4.0',
         'sphinxcontrib_trio==1.1.2',
         'sphinxcontrib-websupport',
+        'typing-extensions',
+    ],
+    'speed': [
+        'aiohttp[speedups]',
+        'orjson>=3.5.4',
+    ],
+    'test': [
+        'coverage[toml]',
+        'pytest',
+        'pytest-asyncio',
+        'pytest-cov',
+        'pytest-mock'
     ]
 }
 
-setup(name='discord.py-self',
+setup(name='selfcord.py-self',
       author='Dolfies',
-      url='https://github.com/dolfies/discord.py-self',
+      url='https://github.com/dolfies/selfcord.py-self',
       project_urls={
-        "Documentation": "https://dolf.ml/discord.py-self",
-        "Issue tracker": "https://github.com/dolfies/discord.py-self/issues",
+        "Documentation": "https://selfcordpy-self.readthedocs.io/en/latest/",
+        "Issue tracker": "https://github.com/dolfies/selfcord.py-self/issues",
+        "Project updates": "https://t.me/dpy_self",
+        "Discussion & support": "https://t.me/dpy_self_discussions",
       },
       version=version,
-      packages=['selfcord', 'selfcord.ext.commands', 'selfcord.ext.tasks'],
+      packages=find_packages() + ['selfcord.ext.commands', 'selfcord.ext.tasks'],
       license='MIT',
-      description='A Python wrapper for the Discord API',
+      description='A Python wrapper for the Discord user API',
       long_description=readme,
       long_description_content_type="text/x-rst",
       include_package_data=True,
       install_requires=requirements,
       extras_require=extras_require,
-      python_requires='>=3.8',
+      python_requires='>=3.8.0',
       classifiers=[
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: MIT License',
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'Topic :: Internet',
         'Topic :: Software Development :: Libraries',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Utilities',
+        'Typing :: Typed',
       ]
 )
